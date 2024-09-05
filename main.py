@@ -5,6 +5,8 @@ from datetime import datetime
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import dropbox
+from keep_alive import keep_alive
+keep_alive()
 
 # Configurare exchange și simbol
 exchange = ccxt.binance()

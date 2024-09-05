@@ -11,6 +11,7 @@ exchange = ccxt.binance()
 symbol = 'WLD/USDT'
 
 DROPBOX_TOKEN = os.environ.get('token')
+
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 
 def frange(start, stop, step):

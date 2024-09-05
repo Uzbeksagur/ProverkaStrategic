@@ -9,7 +9,7 @@ import dropbox
 exchange = ccxt.binance()
 symbol = 'WLD/USDT'
 
-DROPBOX_TOKEN = 'sl.B8XYSMu4pXASvyQx1ThIBdaEmPQKGbZ15PUSi3b-l6x520_HnxZ70NesOQzTW8Ta6UzNTf0HDneGQZOo0xwzs0ToRIkA71_IbdGno98C87PJp01LEiCmwnvLC8quqrnzH74qb8TK6MhW'
+DROPBOX_TOKEN = 'sl.B8Xw-3g8o_busEaDSfo8h-3UzWSJwDyXnV8OzYeElNh74AF4rt-23Pk9HiV8nRBgMC4StKoV9jnumKjvVGMdqk8Qe7Da6EvwlxNfR12tw51Aok9WHU1FWpbAzw9vUyPKZlAgqL0PSeRC'
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 
 def frange(start, stop, step):

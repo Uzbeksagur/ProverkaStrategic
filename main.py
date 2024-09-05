@@ -26,9 +26,9 @@ start_timestamp = exchange.parse8601(start_date + 'T00:00:00Z')
 end_timestamp = exchange.parse8601(end_date + 'T00:00:00Z')
 
 # Intervalele pentru procente
-signal_percent_range = [round(x, 3) for x in frange(0.016, 0.016, 0.002)]
-profit_percent_range = [round(x, 3) for x in frange(0.012, 0.012, 0.002)]
-stop_loss_percent_range = [round(x, 2) for x in frange(0.29, 0.29, 0.01)]
+signal_percent_range = [round(x, 3) for x in frange(0.14, 0.036, 0.002)]
+profit_percent_range = [round(x, 3) for x in frange(0.01, 0.036, 0.002)]
+stop_loss_percent_range = [round(x, 2) for x in frange(0.15, 0.30, 0.01)]
 
 # Fișier pentru rezultate
 results_file = 'trade_results.csv'

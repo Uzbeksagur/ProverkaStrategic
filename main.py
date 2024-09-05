@@ -1,4 +1,5 @@
 import ccxt
+import os
 import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
@@ -9,7 +10,7 @@ import dropbox
 exchange = ccxt.binance()
 symbol = 'WLD/USDT'
 
-DROPBOX_TOKEN = 'sl.B8XYSMu4pXASvyQx1ThIBdaEmPQKGbZ15PUSi3b-l6x520_HnxZ70NesOQzTW8Ta6UzNTf0HDneGQZOo0xwzs0ToRIkA71_IbdGno98C87PJp01LEiCmwnvLC8quqrnzH74qb8TK6MhW'
+DROPBOX_TOKEN = os.environ.get('token')
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 
 def frange(start, stop, step):
@@ -18,7 +19,7 @@ def frange(start, stop, step):
         start += step
 
 # Setarea perioadei de analiză
-start_date = '2024-07-01'
+start_date = '2024-01-01'
 end_date = '2024-08-30'
 
 # Convertirea datelor în timestamp-uri Unix
@@ -26,9 +27,9 @@ start_timestamp = exchange.parse8601(start_date + 'T00:00:00Z')
 end_timestamp = exchange.parse8601(end_date + 'T00:00:00Z')
 
 # Intervalele pentru procente
-signal_percent_range = [round(x, 3) for x in frange(0.016, 0.016, 0.002)]
-profit_percent_range = [round(x, 3) for x in frange(0.012, 0.012, 0.002)]
-stop_loss_percent_range = [round(x, 2) for x in frange(0.29, 0.29, 0.01)]
+signal_percent_range = [round(x, 3) for x in frange(0.14, 0.036, 0.002)]
+profit_percent_range = [round(x, 3) for x in frange(0.01, 0.036, 0.002)]
+stop_loss_percent_range = [round(x, 2) for x in frange(0.15, 0.30, 0.01)]
 
 # Fișier pentru rezultate
 results_file = 'trade_results.csv'

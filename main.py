@@ -165,6 +165,10 @@ def process_trades(signal_percent, profit_percent, stop_loss_percent):
     
     return (signal_percent, profit_percent, stop_loss_percent, profitable_trades, unprofitable_trades, f"{difference_sign}{abs(difference):.2f}")
 
+def upload_to_dropbox(local_path, dropbox_path):
+    with open(local_path, "rb") as f:
+        dbx.files_upload(f.read(), dropbox_path, mode=dropbox.files.WriteMode("overwrite"))
+
 # Utilizarea ThreadPoolExecutor pentru a executa sarcinile în paralel
 with ThreadPoolExecutor(max_workers=4) as executor:
     futures = []
@@ -180,12 +184,8 @@ with ThreadPoolExecutor(max_workers=4) as executor:
         # Salvarea rezultatelor în fișier
         with open(results_file, 'a') as file:
             file.write(f'{signal_percent},{profit_percent},{stop_loss_percent},{profitable_trades},{unprofitable_trades},{difference}\n')
-
-def upload_to_dropbox(local_path, dropbox_path):
-    with open(local_path, "rb") as f:
-        dbx.files_upload(f.read(), dropbox_path, mode=dropbox.files.WriteMode("overwrite"))
-
-# Încărcarea fișierului pe Dropbox
-upload_to_dropbox(results_file, dropbox_file_path)
+        
+        # Încărcarea imediată pe Dropbox după fiecare scriere
+        upload_to_dropbox(results_file, dropbox_file_path)
 
 print("Finalizat")

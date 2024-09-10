@@ -5,6 +5,8 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import os
 import dropbox
+from keep_alive import keep_alive
+keep_alive()
 
 # Configurare exchange și simbol
 exchange = ccxt.bybit({

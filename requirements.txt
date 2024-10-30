@@ -2,3 +2,4 @@ pybit
 websocket
 rel
 flask
+thread

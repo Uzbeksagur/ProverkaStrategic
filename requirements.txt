@@ -1,5 +1,4 @@
-﻿dropbox
-ccxt
-pandas
-tqdm
-flask
+pybit
+websocket
+hmac
+rel

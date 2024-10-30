@@ -6,6 +6,8 @@ import websocket
 import hmac
 import json
 import os
+from keep_alive import keep_alive
+keep_alive()
 
 api_key = os.environ.get("key")
 api_secret = os.environ.get("secret")

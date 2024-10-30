@@ -1,223 +1,200 @@
-import ccxt
-import pandas as pd
-from datetime import datetime
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import time
+from pybit.unified_trading import HTTP
+from pybit.unified_trading import WebSocket
+import rel
+import websocket
+import hmac
+import json
 import os
-import dropbox
-from keep_alive import keep_alive
-keep_alive()
 
-# Configurare exchange și simbol
-exchange = ccxt.bybit({
-    'proxies': {
-        'http': '130.61.171.71:80',
-        'http': '116.203.28.43:80',
-        'http': '188.40.59.208:80',
-        'http': '202.61.206.250:8888',
-        'http': '94.130.94.45:80',
-        'http': '51.254.78.223:80',
-    },
-    'rateLimit': 1000,
-    'enableRateLimit': True,
-})
-symbol = 'WEMIX/USDT'
+api_key = os.environ.get("key")
+api_secret = os.environ.get("secret")
 
-# Token de autentificare Dropbox
-DROPBOX_TOKEN = os.environ.get('token')
-dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+# Initialize HTTP session and WebSocket
+session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
+ws = WebSocket(testnet=False, channel_type="linear")
 
-# Functie pentru a genera intervalele de valori pentru procente
-def frange(start, stop, step):
-    while start <= stop:
-        yield round(start, 3)
-        start += step
 
-# Intervalele pentru procente
-signal_percent_range = [round(x, 3) for x in frange(0.014, 0.04, 0.002)]
-profit_percent_range = [round(x, 3) for x in frange(0.01, 0.04, 0.002)]
-stop_loss_percent_range = [round(x, 2) for x in frange(0.15, 0.3, 0.01)]
+# Trading parameters
+symbol = "WIFUSDT"
+interval = 30
+signal = 0.02
+stop_loss = 0.25
+take_profit = 0.02
+qty = 100
 
-# Funcție pentru încărcarea fișierului pe Dropbox
-def upload_to_dropbox(local_path, dropbox_path):
-    with open(local_path, "rb") as f:
-        dbx.files_upload(f.read(), dropbox_path, mode=dropbox.files.WriteMode("overwrite"))
+# Global variables to store order IDs
+buy_order_id = None
+sell_order_id = None
 
-# Funcție pentru descărcarea lumânărilor de 30 de minute
-def download_candles(timeframe, since):
-    return exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=1000)
+# Function to open a position with buy/sell orders
+def open_position(price): 
+    global buy_order_id, sell_order_id
+    try:
+        buy_price = price * (1 - signal)
+        sell_price = price * (1 + signal)
+        stop_priceBuy = buy_price * (1 - stop_loss)
+        stop_priceSell = sell_price * (1 + stop_loss)
+        takeBuy = buy_price * (1 + take_profit)
+        takeSell = sell_price * (1 - take_profit)
+    except Exception as e:
+        print(f"Error setting variables: {e}")
 
-# Descărcarea tuturor lumânărilor de 30 de minute folosind threading
-def download_all_data(start_date, end_date):
-    start_timestamp = exchange.parse8601(start_date + 'T00:00:00Z')
-    end_timestamp = exchange.parse8601(end_date + 'T00:00:00Z')
+    try:
+        # Place Buy Order
+        buy_order = session.place_order(
+            category="linear",
+            symbol=symbol,
+            side="Buy",
+            orderType="Limit",
+            qty=qty,
+            price=buy_price,
+            stopLoss=stop_priceBuy,
+            takeProfit=takeBuy,
+            positionIdx=1,
+            tpslMode='Partial'
+        )
+        buy_order_id = buy_order['result']['orderId']  # Store Buy order ID
 
-    all_candles = []
-    current_timestamp = start_timestamp
+        # Place Sell Order
+        sell_order = session.place_order(
+            category="linear",
+            symbol=symbol,
+            side="Sell",
+            orderType="Limit",
+            qty=qty,
+            price=sell_price,
+            stopLoss=stop_priceSell,
+            takeProfit=takeSell,
+            positionIdx=2,
+            tpslMode='Partial'
+        )
+        sell_order_id = sell_order['result']['orderId']  # Store Sell order ID
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = []
-        while current_timestamp < end_timestamp:
-            futures.append(executor.submit(download_candles, '30m', current_timestamp))
-            current_timestamp += 1000 * 30 * 60 * 1000  # Incrementarea cu numărul de lumânări * 30m
+        print('Orders Opened')
 
-        for future in as_completed(futures):
-            all_candles.extend(future.result())
+    except Exception as e:
+        print(f"Error placing orders: {e}")
 
-    # Convertirea datelor în DataFrame pentru prelucrare ulterioară
-    df_1h = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_1h['timestamp'] = pd.to_datetime(df_1h['timestamp'], unit='ms')
+# Get the latest price for the symbol
+def getPrice():
+    kline = session.get_kline(
+        category="linear",
+        symbol=symbol,
+        interval=interval,
+        limit=1
+    )
+    price = kline['result']['list'][0][1]
+    return float(price)
 
-    return df_1h
+# Cancel all open orders for the symbol
+def closeOrders():
+    session.cancel_all_orders(
+        category="linear",
+        symbol=symbol,
+        orderFilter='Order'
+    )
 
-# Cache pentru datele de 1 minut
-minute_data_cache = {}
+# Reopen buy/sell orders after closing existing ones
+def reopen():
+    global buy_order_id, sell_order_id
+    try:
+        closeOrders()
+        print("Orders Closed")
+    except Exception as e:
+        print(f"Error closing orders: {e}")
+    
+    try:
+        price = float(getPrice())
+        open_position(price)
+    except Exception as e:
+        print(f"Error reopening orders: {e}")
 
-# Funcție pentru descărcarea și stocarea datelor de 1 minut în cache
-def get_minute_data(start_time):
-    if start_time in minute_data_cache:
-        return minute_data_cache[start_time]
+# Handle position updates from WebSocket
+def handle_order(message):
+    global buy_order_id, sell_order_id
+    response = json.loads(message)
+    for order in response.get("data", []):
+        if order.get("orderStatus") == "Filled" and order.get("orderId") == buy_order_id:
+            print("Buy order filled, canceling Sell order.")
+            try:
+                session.cancel_order(category='linear', symbol=symbol, orderId=sell_order_id)
+                print("Sell order Canceled")
+            except Exception as e:
+                print(f"Error canceling sell order: {e}")
+            sell_order_id = None  # Reset Sell order ID
+        elif order.get("orderStatus") == "Filled" and order.get("orderId") == sell_order_id:
+            print("Sell order filled, canceling Buy order.")
+            try:
+                session.cancel_order(category='linear', symbol=symbol, orderId=buy_order_id)
+                print("Buy order Canceled")
+            except Exception as e:
+                print(f"Error canceling buy order: {e}")
+            buy_order_id = None  # Reset Buy order ID
 
-    minute_candles = exchange.fetch_ohlcv(symbol, timeframe='1m', since=int(start_time.timestamp() * 1000), limit=30)
-    df_1m = pd.DataFrame(minute_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_1m['timestamp'] = pd.to_datetime(df_1m['timestamp'], unit='ms')
-    minute_data_cache[start_time] = df_1m
+# Handle kline updates and check for confirmation to reopen orders
+def handle_message(message):
+    run = message['data'][0]['confirm']
+    if run:
+        reopen()
 
-    return df_1m
+# Subscribe to kline updates
+def webik():
+    ws.kline_stream(
+        interval=interval,
+        symbol=symbol,
+        callback=handle_message
+    )
 
-# Funcția de procesare a tranzacțiilor folosind multiprocessing
-def process_trades(df_1h, signal_percent, profit_percent, stop_loss_percent):
-    buy_limit_percent = 1 - signal_percent
-    sell_limit_percent = 1 + signal_percent
-    profitable_trades = 0
-    unprofitable_trades = 0
-    total_profitable_value = 0
-    total_unprofitable_value = 0
+# Initialize WebSocket and position update listeners
+webik()
 
-    for i in range(len(df_1h)):
-        open_price = df_1h.loc[i, 'open']
-        high_price = df_1h.loc[i, 'high']
-        low_price = df_1h.loc[i, 'low']
-        open_timestamp = df_1h.loc[i, 'timestamp']
+def on_open(ws):
+    # Generăm `expires` și `signature` când conexiunea este stabilită
+    expires = int((time.time() + 5) * 1000)
+    signature = str(hmac.new(
+        bytes(api_secret, "utf-8"),
+        bytes(f"GET/realtime{expires}", "utf-8"), digestmod="sha256"
+    ).hexdigest())
 
-        buy_limit = open_price * buy_limit_percent
-        sell_limit = open_price * sell_limit_percent
+    # Trimite autentificarea
+    ws.send(
+        json.dumps({
+            "op": "auth",
+            "args": [api_key, expires, signature]
+        })
+    )
+    
+    # Trimite abonarea la order stream
+    ws.send(
+        json.dumps({
+            "op": "subscribe",
+            "args": [
+                "order"
+            ]
+        })
+    )
 
-        trade_opened = False
-        entry_price = None
-        stop_loss = None
-        trade_type = None
-        close_timestamp = None
+def on_message(ws, message):
+    if 'topic' in message:
+        handle_order(message)
+    else:
+        print("Mesaj primit:", message)
 
-        if low_price <= buy_limit:
-            trade_opened = True
-            entry_price = buy_limit
-            stop_loss = buy_limit * (1 - stop_loss_percent)
-            trade_type = 'BUY'
-        elif high_price >= sell_limit:
-            trade_opened = True
-            entry_price = sell_limit
-            stop_loss = sell_limit * (1 + stop_loss_percent)
-            trade_type = 'SELL'
+def on_error(ws, error):
+    print("Eroare:", error)
 
-        if trade_opened:
-            df_1m = get_minute_data(open_timestamp)
+def on_close(ws, close_status_code, close_msg):
+    print("Conexiune inchisa", close_status_code, close_msg)
 
-            for j in range(len(df_1m)):
-                current_high = df_1m.loc[j, 'high']
-                current_low = df_1m.loc[j, 'low']
-                minute_timestamp = df_1m.loc[j, 'timestamp']
-
-                if trade_type == 'BUY':
-                    if current_low <= entry_price:
-                        if current_high >= entry_price * (1 + profit_percent):
-                            close_timestamp = minute_timestamp
-                            total_profitable_value += profit_percent * 100
-                            profitable_trades += 1
-                            break
-                        elif current_low <= stop_loss:
-                            close_timestamp = minute_timestamp
-                            total_unprofitable_value += stop_loss_percent * 100
-                            unprofitable_trades += 1
-                            break
-
-                elif trade_type == 'SELL':
-                    if current_high >= entry_price:
-                        if current_low <= entry_price * (1 - profit_percent):
-                            close_timestamp = minute_timestamp
-                            total_profitable_value += profit_percent * 100
-                            profitable_trades += 1
-                            break
-                        elif current_high >= stop_loss:
-                            close_timestamp = minute_timestamp
-                            total_unprofitable_value += stop_loss_percent * 100
-                            unprofitable_trades += 1
-                            break
-
-            # Dacă tranzacția nu s-a închis în lumânările de 1 minut, continuă cu cele de 30 de minute
-            if close_timestamp is None:
-                for k in range(i + 1, len(df_1h)):
-                    next_high = df_1h.loc[k, 'high']
-                    next_low = df_1h.loc[k, 'low']
-                    close_timestamp = df_1h.loc[k, 'timestamp']
-
-                    if trade_type == 'BUY':
-                        if next_high >= entry_price * (1 + profit_percent):
-                            total_profitable_value += profit_percent * 100
-                            profitable_trades += 1
-                            break
-                        elif next_low <= stop_loss:
-                            total_unprofitable_value += stop_loss_percent * 100
-                            unprofitable_trades += 1
-                            break
-
-                    elif trade_type == 'SELL':
-                        if next_low <= entry_price * (1 - profit_percent):
-                            total_profitable_value += profit_percent * 100
-                            profitable_trades += 1
-                            break
-                        elif next_high >= stop_loss:
-                            total_unprofitable_value += stop_loss_percent * 100
-                            unprofitable_trades += 1
-                            break
-
-    difference = total_profitable_value - total_unprofitable_value
-    difference_sign = "+" if difference > 0 else "-"
-
-    return (signal_percent, profit_percent, stop_loss_percent, profitable_trades, unprofitable_trades, f"{difference_sign}{abs(difference):.2f}")
-
-# Funcția de execuție a tranzacțiilor cu multiprocessing
-def execute_trades(df_1h):
-    results_file = 'trade_results.csv'
-    dropbox_file_path = '/trade_results.csv'
-
-    with open(results_file, 'w') as file:
-        file.write('signal_percent,profit_percent,stop_loss_percent,profitable_trades,unprofitable_trades,difference\n')
-
-    with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-        futures = []
-        for signal_percent in signal_percent_range:
-            for profit_percent in profit_percent_range:
-                for stop_loss_percent in stop_loss_percent_range:
-                    futures.append(executor.submit(process_trades, df_1h, signal_percent, profit_percent, stop_loss_percent))
-
-        for future in tqdm(as_completed(futures), total=len(futures)):
-            result = future.result()
-            signal_percent, profit_percent, stop_loss_percent, profitable_trades, unprofitable_trades, difference = result
-            # Salvarea rezultatelor în fișier
-            with open(results_file, 'a') as file:
-                file.write(f'{signal_percent},{profit_percent},{stop_loss_percent},{profitable_trades},{unprofitable_trades},{difference}\n')
-
-            # Încărcarea imediată pe Dropbox după fiecare scriere
-            upload_to_dropbox(results_file, dropbox_file_path)
-
-if __name__ == '__main__':
-    # Parametri de timp pentru descărcarea datelor
-    start_date = '2023-12-01'
-    end_date = '2024-08-30'
-
-    # Rulează descărcarea și procesarea datelor
-    df_1h = download_all_data(start_date, end_date)
-    execute_trades(df_1h)
-
-    print("Finalizat")
+if __name__ == "__main__":
+    ws = websocket.WebSocketApp(
+        "wss://stream-demo.bybit.com/v5/private",
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error,
+        on_close=on_close
+    )
+    ws.run_forever(dispatcher=rel, reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
+    rel.signal(2, rel.abort)  # Keyboard Interrupt
+    rel.dispatch()

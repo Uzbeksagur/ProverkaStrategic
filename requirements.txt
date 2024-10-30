@@ -1,5 +1,4 @@
 pybit
 websocket
-hmac
 rel
 flask

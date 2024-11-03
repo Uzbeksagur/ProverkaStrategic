@@ -18,11 +18,11 @@ ws = WebSocket(testnet=False, channel_type="linear")
 
 
 # Trading parameters
-symbol = "WIFUSDT"
+symbol = "TIAUSDT"
 interval = 30
-signal = 0.02
-stop_loss = 0.25
-take_profit = 0.02
+signal = 0.016
+stop_loss = 0.28
+take_profit = 0.038
 qty = 100
 
 # Global variables to store order IDs
@@ -180,8 +180,6 @@ def on_open(ws):
 def on_message(ws, message):
     if 'topic' in message:
         handle_order(message)
-    else:
-        print("Mesaj primit:", message)
 
 def on_error(ws, error):
     print("Eroare:", error)

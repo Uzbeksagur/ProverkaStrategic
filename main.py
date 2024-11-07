@@ -23,7 +23,7 @@ interval = 30
 signal = 0.016
 stop_loss = 0.28
 take_profit = 0.038
-qty = 100
+fill_price = 5
 
 # Global variables to store order IDs
 buy_order_id = None
@@ -32,6 +32,7 @@ sell_order_id = None
 # Function to open a position with buy/sell orders
 def open_position(price): 
     global buy_order_id, sell_order_id
+    qty = fill_price / price
     try:
         buy_price = price * (1 - signal)
         sell_price = price * (1 + signal)

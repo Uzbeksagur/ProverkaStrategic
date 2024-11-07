@@ -23,7 +23,7 @@ interval = 30
 signal = 0.016
 stop_loss = 0.28
 take_profit = 0.038
-fill_price = 5
+fill_price = 5.5
 
 # Global variables to store order IDs
 buy_order_id = None

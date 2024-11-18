@@ -3,3 +3,4 @@ websockets
 rel
 flask
 thread
+requests

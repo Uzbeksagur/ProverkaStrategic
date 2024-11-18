@@ -46,7 +46,7 @@ def sendMessage(msg):
     except Exception as e:
         print(f"Error sending Message: {e}")
     try:
-        wallet = session.get_wallet_balance(accountType="UNIFIED")
+        wallet = session.get_wallet_balance(accountType="UNIFIED",coin="USDT")
         message = wallet["result"]["list"][0]["coin"][0]
         try: 
             url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={handle_wallet(message)}"

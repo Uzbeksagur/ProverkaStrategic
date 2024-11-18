@@ -6,11 +6,15 @@ import websocket
 import hmac
 import json
 import os
+import requests
 from keep_alive import keep_alive
 keep_alive()
 
 api_key = os.environ.get("key")
 api_secret = os.environ.get("secret")
+
+token = os.environ.get("token")
+chat_id = os.environ.get("chat")
 
 # Initialize HTTP session and WebSocket
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
@@ -28,6 +32,29 @@ fill_price = 5 * 25
 # Global variables to store order IDs
 buy_order_id = None
 sell_order_id = None
+
+def handle_wallet(message):
+    avi = message.get('availableToWithdraw', '0')
+    mar = message.get('walletBalance', '0')
+    return(f'Available: {round(float(avi), 2)}, Total: {round(float(mar), 2)}')
+
+# Function to send Messages in Telegram
+def sendMessage(msg):
+    url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
+    try:
+        requests.get(url)
+    except Exception as e:
+        print(f"Error sending Message: {e}")
+    try:
+        wallet = session.get_wallet_balance(accountType="UNIFIED")
+        message = wallet["result"]["list"][0]["coin"][0]
+        try: 
+            url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={handle_wallet(message)}"
+            requests.get(url)
+        except Exception as e:
+            print(f"Error seting Wallet Message: {e}")
+    except Exception as e:
+        print(f"Error sending Wallet Message: {e}")
 
 # Function to open a position with buy/sell orders
 def open_position(price): 
@@ -51,9 +78,9 @@ def open_position(price):
             side="Buy",
             orderType="Limit",
             qty=round(qty, 1),
-            price=buy_price,
-            stopLoss=stop_priceBuy,
-            takeProfit=takeBuy,
+            price=round(buy_price, 3),
+            stopLoss=round(stop_priceBuy, 3),
+            takeProfit=round(takeBuy, 3),
             positionIdx=1,
             tpslMode='Partial'
         )
@@ -66,9 +93,9 @@ def open_position(price):
             side="Sell",
             orderType="Limit",
             qty=round(qty, 1),
-            price=sell_price,
-            stopLoss=stop_priceSell,
-            takeProfit=takeSell,
+            price=round(sell_price, 3),
+            stopLoss=round(stop_priceSell, 3),
+            takeProfit=round(takeSell, 3),
             positionIdx=2,
             tpslMode='Partial'
         )
@@ -118,8 +145,14 @@ def handle_order(message):
     global buy_order_id, sell_order_id
     response = json.loads(message)
     for order in response.get("data", []):
+        pnl = order.get("closedPnl")
+        # if pnl != "0":
+        #     sendMessage(f"Position Closed with Profit: {round(float(pnl), 2)}")
         if order.get("orderStatus") == "Filled" and order.get("orderId") == buy_order_id:
+            qty = order.get("qty")
+            price = order.get("price")
             print("Buy order filled, canceling Sell order.")
+            sendMessage(f"Buy Order Filled on Price: {price}, on Quantity: {qty}, with total Price: {round((float(qty)*float(price)), 2)}")
             try:
                 session.cancel_order(category='linear', symbol=symbol, orderId=sell_order_id)
                 print("Sell order Canceled")
@@ -127,7 +160,10 @@ def handle_order(message):
                 print(f"Error canceling sell order: {e}")
             sell_order_id = None  # Reset Sell order ID
         elif order.get("orderStatus") == "Filled" and order.get("orderId") == sell_order_id:
+            qty = order.get("qty")
+            price = order.get("price")
             print("Sell order filled, canceling Buy order.")
+            sendMessage(f"Sell Order Filled on Price: {price}, on Quantity: {qty}, with total Price: {round((float(qty)*float(price)), 2)}")
             try:
                 session.cancel_order(category='linear', symbol=symbol, orderId=buy_order_id)
                 print("Buy order Canceled")

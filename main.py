@@ -35,7 +35,7 @@ sell_order_id = None
 
 def handle_wallet(message):
     avi = message.get('availableToWithdraw', '0')
-    mar = message.get('walletBalance', '0')
+    mar = message.get('equity', '0')
     return(f'Available: {round(float(avi), 2)}, Total: {round(float(mar), 2)}')
 
 # Function to send Messages in Telegram

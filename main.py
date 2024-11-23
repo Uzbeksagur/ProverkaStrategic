@@ -27,7 +27,7 @@ interval = 30
 signal = 0.016
 stop_loss = 0.28
 take_profit = 0.038
-fill_price = 5 * 25
+fill_price = 5 * 10
 
 # Global variables to store order IDs
 buy_order_id = None
@@ -151,24 +151,14 @@ def handle_order(message):
         if order.get("orderStatus") == "Filled" and order.get("orderId") == buy_order_id:
             qty = order.get("qty")
             price = order.get("price")
-            print("Buy order filled, canceling Sell order.")
+            print("Buy order filled")
             sendMessage(f"Buy Order Filled on Price: {price}, on Quantity: {qty}, with total Price: {round((float(qty)*float(price)), 2)}")
-            try:
-                session.cancel_order(category='linear', symbol=symbol, orderId=sell_order_id)
-                print("Sell order Canceled")
-            except Exception as e:
-                print(f"Error canceling sell order: {e}")
             sell_order_id = None  # Reset Sell order ID
         elif order.get("orderStatus") == "Filled" and order.get("orderId") == sell_order_id:
             qty = order.get("qty")
             price = order.get("price")
-            print("Sell order filled, canceling Buy order.")
+            print("Sell order filled")
             sendMessage(f"Sell Order Filled on Price: {price}, on Quantity: {qty}, with total Price: {round((float(qty)*float(price)), 2)}")
-            try:
-                session.cancel_order(category='linear', symbol=symbol, orderId=buy_order_id)
-                print("Buy order Canceled")
-            except Exception as e:
-                print(f"Error canceling buy order: {e}")
             buy_order_id = None  # Reset Buy order ID
 
 # Handle kline updates and check for confirmation to reopen orders

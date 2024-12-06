@@ -73,7 +73,7 @@ def open_position(price):
     message = wallet["result"]["list"][0]["coin"][0]
     avi = message.get('availableToWithdraw', '0')
 
-    if (avi > 50):
+    if (float(avi) > 50):
         try:
             # Place Buy Order
             buy_order = session.place_order(

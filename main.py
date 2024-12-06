@@ -21,7 +21,7 @@ session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
 ws = WebSocket(testnet=False, channel_type="linear")
 
 # Trading parameters
-symbol = "STXUSDT"
+symbol = "TIAUSDT"
 interval = 30
 signal = 0.016
 stop_loss = 0.28

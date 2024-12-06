@@ -20,13 +20,12 @@ chat_id = os.environ.get("chat")
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
 ws = WebSocket(testnet=False, channel_type="linear")
 
-
 # Trading parameters
 symbol = "STXUSDT"
 interval = 30
-signal = 0.014
-stop_loss = 0.29
-take_profit = 0.036
+signal = 0.016
+stop_loss = 0.28
+take_profit = 0.038
 fill_price = 5 * 10
 
 # Global variables to store order IDs
@@ -69,42 +68,51 @@ def open_position(price):
         takeSell = sell_price * (1 - take_profit)
     except Exception as e:
         print(f"Error setting variables: {e}")
+    
+    wallet = session.get_wallet_balance(accountType="UNIFIED",coin="USDT")
+    message = wallet["result"]["list"][0]["coin"][0]
+    avi = message.get('availableToWithdraw', '0')
 
-    try:
-        # Place Buy Order
-        buy_order = session.place_order(
-            category="linear",
-            symbol=symbol,
-            side="Buy",
-            orderType="Limit",
-            qty=round(qty, 1),
-            price=round(buy_price, 3),
-            stopLoss=round(stop_priceBuy, 3),
-            takeProfit=round(takeBuy, 3),
-            positionIdx=1,
-            tpslMode='Partial'
-        )
-        buy_order_id = buy_order['result']['orderId']  # Store Buy order ID
+    if (avi > 50):
+        try:
+            # Place Buy Order
+            buy_order = session.place_order(
+                category="linear",
+                symbol=symbol,
+                side="Buy",
+                orderType="Limit",
+                qty=round(qty, 1),
+                price=round(buy_price, 3),
+                stopLoss=round(stop_priceBuy, 3),
+                takeProfit=round(takeBuy, 3),
+                positionIdx=1,
+                tpslMode='Partial'
+            )
+            buy_order_id = buy_order['result']['orderId']  # Store Buy order ID
+        
+        except Exception as e:
+            print(f"Error placing BUY order: {e}")
 
-        # Place Sell Order
-        sell_order = session.place_order(
-            category="linear",
-            symbol=symbol,
-            side="Sell",
-            orderType="Limit",
-            qty=round(qty, 1),
-            price=round(sell_price, 3),
-            stopLoss=round(stop_priceSell, 3),
-            takeProfit=round(takeSell, 3),
-            positionIdx=2,
-            tpslMode='Partial'
-        )
-        sell_order_id = sell_order['result']['orderId']  # Store Sell order ID
+        try:
+            # Place Sell Order
+            sell_order = session.place_order(
+                category="linear",
+                symbol=symbol,
+                side="Sell",
+                orderType="Limit",
+                qty=round(qty, 1),
+                price=round(sell_price, 3),
+                stopLoss=round(stop_priceSell, 3),
+                takeProfit=round(takeSell, 3),
+                positionIdx=2,
+                tpslMode='Partial'
+            )
+            sell_order_id = sell_order['result']['orderId']  # Store Sell order ID
 
-        print('Orders Opened')
-
-    except Exception as e:
-        print(f"Error placing orders: {e}")
+        except Exception as e:
+            print(f"Error placing SELL order: {e}")
+    else:
+        print('Caroce Balansul e mai mic de 50')
 
 # Get the latest price for the symbol
 def getPrice():

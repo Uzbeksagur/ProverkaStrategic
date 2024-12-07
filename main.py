@@ -138,7 +138,6 @@ def reopen():
     global buy_order_id, sell_order_id
     try:
         closeOrders()
-        print("Orders Closed")
     except Exception as e:
         print(f"Error closing orders: {e}")
     

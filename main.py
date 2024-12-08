@@ -23,9 +23,9 @@ ws = WebSocket(testnet=False, channel_type="linear")
 # Trading parameters
 symbol = "TIAUSDT"
 interval = 1
-signal = 0.005
-stop_loss = 0.14
-take_profit = 0.019
+signal = 0.002
+stop_loss = 0.15
+take_profit = 0.028
 fill_price = 5 * 10
 
 # Global variables to store order IDs

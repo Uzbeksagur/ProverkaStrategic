@@ -6,7 +6,7 @@ keep_alive()
 def fetch_table_data():
     with sync_playwright() as p:
         # Pornește browserul headless
-        browser = p.chromium.launch(headless=False)  # Setează la True dacă nu vrei să vezi browserul
+        browser = p.firefox.launch(headless=True)  # Setează la True dacă nu vrei să vezi browserul
         page = browser.new_page()
 
         # Deschide URL-ul

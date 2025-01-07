@@ -1,6 +1,2 @@
-pybit
-websockets
-rel
+playwright
 flask
-thread
-requests

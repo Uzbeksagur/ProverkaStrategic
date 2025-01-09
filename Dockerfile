@@ -1,6 +1,12 @@
 # Imagine de bază pentru aplicația Python
 FROM python:3.10-slim
 
+ARG api_key = "FUohm9A4TvvCSChSG7"
+ARG api_secret = "tJAfR9ddpKCJ3ubOXdBViuprX8R9tU3V6B1v"
+
+ARG token = '7877883188:AAGdqomhdm9HdOkyybIrHWfw_kXVf9u-9Tc'
+ARG chat_id = "6527491132"
+
 # Instalează dependențele de sistem necesare pentru Playwright
 RUN apt-get update && apt-get install -y \
     libnss3 libatk1.0-0 libx11-xcb1 libxcomposite1 libxrandr2 libgbm-dev libpangocairo-1.0-0 libgtk-3-0 \

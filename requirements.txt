@@ -1,2 +1,5 @@
 playwright
 flask
+schedule
+requests
+pybit

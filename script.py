@@ -15,11 +15,11 @@ class Row:
     self.time = time
     self.rate = rate
 
-api_key = os.environ.get("key")
-api_secret = os.environ.get("secret")
+api_key = os.environ.get("KEY")
+api_secret = os.environ.get("SECRET")
 
-token = os.environ.get("token")
-chat_id = os.environ.get("chat")
+token = os.environ.get("TOKEN")
+chat_id = os.environ.get("CHAT")
 
 # Initialize HTTP session and WebSocket
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)

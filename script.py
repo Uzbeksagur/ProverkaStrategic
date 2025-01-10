@@ -168,6 +168,7 @@ def verify():
     timeCurrent = datetime.utcnow().hour
     if fundingTime == 0: fundingTime = 24
     side = 'Buy'
+    print(best.rate)
     if(fundingTime == (timeCurrent + 1)):
         rate_val = float(best.rate[:-1])
         if(rate_val > 0.25):

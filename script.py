@@ -94,16 +94,18 @@ def fetch_table_data():
 # Function to open a position with buy/sell orders
 def open_position(price, symbol, side): 
     qty = 200/price
-    takeProfit = 0.003
+    takeProfit = 0.0031
     stopLoss = 0.075
     # buy = 1
     idx = 1
     try:
-        stopPrice = price * (1 - stopLoss)
-        takePrice = price * (1 + takeProfit)
         if side == 'Buy':
+            stopPrice = price * (1 - stopLoss)
+            takePrice = price * (1 + takeProfit)
             idx = 1
         elif side == 'Sell':
+            stopPrice = price * (1 + stopLoss)
+            takePrice = price * (1 - takeProfit)
             idx = 2
     except Exception as e:
         print(f"Error setting variables: {e}")
@@ -166,7 +168,7 @@ def verify():
     timeCurrent = datetime.utcnow().hour
     if fundingTime == 0: fundingTime = 24
     side = 'Buy'
-    if(fundingTime == (timeCurrent + 2)):
+    if(fundingTime == (timeCurrent + 1)):
         rate_val = float(best.rate[:-1])
         if(rate_val > 0.25):
             side = 'Sell'

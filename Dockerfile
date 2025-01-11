@@ -1,18 +1,6 @@
 # Imagine de bază pentru aplicația Python
 FROM python:3.10-slim
 
-ARG KEY="FUohm9A4TvvCSChSG7"
-ARG SECRET="tJAfR9ddpKCJ3ubOXdBViuprX8R9tU3V6B1v"
-ARG TOKEN="7877883188:AAGdqomhdm9HdOkyybIrHWfw_kXVf9u-9Tc"
-ARG CHAT="6527491132"
-
-# Utilizarea argumentelor (opțional, pentru configurare ulterioară)
-# ENV poate fi utilizat pentru a expune aceste variabile în container.
-ENV KEY=${KEY}
-ENV SECRET=${SECRET}
-ENV TOKEN=${TOKEN}
-ENV CHAT=${CHAT}
-
 # Instalează dependențele de sistem necesare pentru Playwright
 RUN apt-get update && apt-get install -y \
     libnss3 libatk1.0-0 libx11-xcb1 libxcomposite1 libxrandr2 libgbm-dev libpangocairo-1.0-0 libgtk-3-0 \
@@ -32,4 +20,4 @@ COPY . /app
 WORKDIR /app
 
 # Rulează aplicația
-CMD ["python", "script.py"]
+CMD ["python", "-u", "script.py"]

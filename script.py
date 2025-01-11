@@ -45,7 +45,7 @@ def sendMessage():
 def fetch_table_data():
     with sync_playwright() as p:
         # Pornește browserul headless
-        browser = p.firefox.launch(headless=True)  # Setează la True dacă nu vrei să vezi browserul
+        browser = p.chromium.launch()  # Setează la True dacă nu vrei să vezi browserul
         page = browser.new_page()
 
         # Deschide URL-ul

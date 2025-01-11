@@ -220,8 +220,7 @@ def verify():
             reopen(best.symbol, side)
 
 # Programează funcția să ruleze la începutul fiecărei ore
-schedule.every().hour.at(":58").do(verify)
+schedule.every().minute.at(":58").do(verify)
 
 while True:
     schedule.run_pending()
-    time.sleep(1)  # Așteaptă 1 secundă între verificări

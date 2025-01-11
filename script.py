@@ -5,7 +5,6 @@ from datetime import datetime
 from pybit.unified_trading import HTTP
 from pybit.unified_trading import WebSocket
 import requests
-import os
 from keep_alive import keep_alive
 keep_alive()
 
@@ -15,11 +14,11 @@ class Row:
     self.time = time
     self.rate = rate
 
-api_key = os.environ.get("KEY")
-api_secret = os.environ.get("SECRET")
+api_key = "FUohm9A4TvvCSChSG7"
+api_secret = "tJAfR9ddpKCJ3ubOXdBViuprX8R9tU3V6B1v"
 
-token = os.environ.get("TOKEN")
-chat_id = os.environ.get("CHAT")
+token = "7877883188:AAGdqomhdm9HdOkyybIrHWfw_kXVf9u-9Tc"
+chat_id = "6527491132"
 
 # Initialize HTTP session and WebSocket
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
@@ -45,7 +44,6 @@ def sendMessage():
 # Scriptul Playwright
 def fetch_table_data():
     with sync_playwright() as p:
-        print('6')
         # Pornește browserul headless
         browser = p.chromium.launch(headless=True)  # Setează la True dacă nu vrei să vezi browserul
         page = browser.new_page()
@@ -56,6 +54,18 @@ def fetch_table_data():
 
         # Așteaptă încărcarea tabelului
         page.wait_for_selector("table")
+
+        # Apasă pe al cincilea <th> pentru a sorta tabelul
+        page.click("table thead tr th:nth-child(5)")
+        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+
+        negative = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
+
+        # Apasă pe al cincilea <th> pentru a sorta tabelul
+        page.click("table thead tr th:nth-child(5)")
+        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+
+        positive = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
 
         # Apasă pe al patrulea <th> pentru a sorta tabelul
         page.click("table thead tr th:nth-child(4)")
@@ -90,13 +100,34 @@ def fetch_table_data():
         # Închide browserul
         browser.close()
 
-        # Returnează rândul cu cel mai mare rate
-        return max_rate_row
+        if(positive.time == max_rate_row.time == negative.time):
+           negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
+           positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
+           if(positiveRate <= negativeRate):
+               return negative
+           else:
+               return positive
+        elif (positive.time == max_rate_row.time != negative.time):
+            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
+            positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
+            if(positiveRate <= lastRate):
+               return max_rate_row
+            else:
+               return positive
+        elif (negative.time == max_rate_row.time != positive.time):
+            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
+            negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
+            if(negativeRate <= lastRate):
+               return max_rate_row
+            else:
+               return negative
+        else:
+            return max_rate_row
 
 # Function to open a position with buy/sell orders
 def open_position(price, symbol, side): 
-    qty = 200/price
-    takeProfit = 0.0031
+    qty = 202/price
+    takeProfit = 0.0033
     stopLoss = 0.075
     # buy = 1
     idx = 1
@@ -118,13 +149,21 @@ def open_position(price, symbol, side):
             category="linear",
             symbol=symbol,
             side=side,
-            orderType="Limit",
+            orderType="Market",
             qty=round(qty),
             price=price,
+            positionIdx=idx,
+        )
+        time.sleep(120)
+        take = session.set_trading_stop(
+            category="linear",
+            symbol=symbol,
+            positionIdx=idx,
             stopLoss=stopPrice,
             takeProfit=takePrice,
-            positionIdx=idx,
-            tpslMode='Partial'
+            tpslMode='Partial',
+            tpSize=str(round(qty)),
+            slSize=str(round(qty)),
         )
     except Exception as e:
         print(f"Error placing BUY order: {e}")
@@ -170,7 +209,7 @@ def verify():
     timeCurrent = datetime.utcnow().hour
     if fundingTime == 0: fundingTime = 24
     side = 'Buy'
-    print(best.rate)
+    print(best.rate, best.symbol)
     if(fundingTime == (timeCurrent + 1)):
         rate_val = float(best.rate[:-1])
         if(rate_val > 0.25):

@@ -45,12 +45,12 @@ def sendMessage():
 def fetch_table_data():
     with sync_playwright() as p:
         # Pornește browserul headless
-        browser = p.chromium.launch()  # Setează la True dacă nu vrei să vezi browserul
+        browser = p.firefox.launch()  # Setează la True dacă nu vrei să vezi browserul
         page = browser.new_page()
 
         # Deschide URL-ul
         url = "https://bybit.com/en/announcement-info/fund-rate/"
-        page.goto(url)
+        page.goto(url, timeout=60000)
 
         # Așteaptă încărcarea tabelului
         page.wait_for_selector("table")

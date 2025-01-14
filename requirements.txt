@@ -1,4 +1,4 @@
-playwright
+selenium
 flask
 schedule
 requests

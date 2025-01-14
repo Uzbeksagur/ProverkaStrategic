@@ -11,10 +11,6 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalează Playwright și browserele
-RUN pip install playwright
-RUN playwright install --with-deps
-
 # Copiază codul aplicației
 COPY . /app
 WORKDIR /app

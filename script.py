@@ -1,10 +1,12 @@
-from playwright.sync_api import sync_playwright
 import schedule
 import time
 from datetime import datetime
 from pybit.unified_trading import HTTP
-from pybit.unified_trading import WebSocket
 import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from keep_alive import keep_alive
 keep_alive()
 
@@ -43,86 +45,90 @@ def sendMessage():
 
 # Scriptul Playwright
 def fetch_table_data():
-    with sync_playwright() as p:
-        # Pornește browserul headless
-        browser = p.firefox.launch()  # Setează la True dacă nu vrei să vezi browserul
-        page = browser.new_page()
+    # Configurează driverul Selenium (exemplu cu Chrome)
+    options = webdriver.FirefoxOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
 
-        # Deschide URL-ul
-        url = "https://bybit.com/en/announcement-info/fund-rate/"
-        page.goto(url, timeout=60000)
+    driver = webdriver.Firefox(options=options)
+    driver.get("https://bybit.com/en/announcement-info/fund-rate/")
 
+    try:
         # Așteaptă încărcarea tabelului
-        page.wait_for_selector("table")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "table"))
+        )
 
-        # Apasă pe al cincilea <th> pentru a sorta tabelul
-        page.click("table thead tr th:nth-child(5)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+        def get_rows():
+            tbody = driver.find_element(By.CSS_SELECTOR, "table tbody")
+            return tbody.find_elements(By.TAG_NAME, "tr")
 
-        negative = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
+        def get_row_data(row):
+            cells = row.find_elements(By.TAG_NAME, "td")
+            return Row(cells[0].text, cells[3].text, cells[4].text)
 
-        # Apasă pe al cincilea <th> pentru a sorta tabelul
-        page.click("table thead tr th:nth-child(5)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+        # Sortează tabelul după al cincilea <th>
+        th_fifth = driver.find_element(By.CSS_SELECTOR, "table thead tr th:nth-child(5)")
+        th_fifth.click()
+        time.sleep(1)  # Pauză pentru sortare
 
-        positive = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
+        rows = get_rows()
+        negative = get_row_data(rows[1])
 
-        # Apasă pe al patrulea <th> pentru a sorta tabelul
-        page.click("table thead tr th:nth-child(4)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+        # Sortează tabelul din nou după al cincilea <th>
+        th_fifth.click()
+        time.sleep(1)
 
-        # Obține toate rândurile din tabel
-        rows = page.locator("table tbody tr")
-        row_count = rows.count()
+        rows = get_rows()
+        positive = get_row_data(rows[1])
 
-        # Obține ora din primul rând
-        first_row_time = rows.nth(1).locator("td:nth-child(4)").inner_text()
+        # Sortează după al patrulea <th>
+        th_fourth = driver.find_element(By.CSS_SELECTOR, "table thead tr th:nth-child(4)")
+        th_fourth.click()
+        time.sleep(1)
 
-        # Variabilă pentru a ține minte linia cu cel mai mare rate
+        rows = get_rows()
+        first_row_time = rows[1].find_elements(By.TAG_NAME, "td")[3].text
         max_rate_row = None
-        max_rate_value = float('-inf')  # Inițializăm cu cel mai mic număr posibil
+        max_rate_value = float('-inf')
 
-        # Parcurge toate rândurile care au aceeași oră ca prima linie
-        for i in range(1, row_count):  # Începem de la al doilea rând (index 1)
-            time = rows.nth(i).locator("td:nth-child(4)").inner_text()
+        for row in rows[1:]:
+            cells = row.find_elements(By.TAG_NAME, "td")
+            time_cell = cells[3].text
 
-            # Verifică dacă ora curentă este aceeași cu ora primei linii
-            if time == first_row_time:
-                symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
-                rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
+            if time_cell == first_row_time:
+                symbol = cells[0].text
+                rate_text = cells[4].text
                 rate = float(rate_text.replace('%', '').replace('-', ''))
 
-                # Actualizează rândul cu cel mai mare rate
                 if rate > max_rate_value:
                     max_rate_value = rate
-                    max_rate_row = Row(symbol, time, rate_text)
+                    max_rate_row = Row(symbol, time_cell, rate_text)
 
-        # Închide browserul
-        browser.close()
+        def parse_rate(rate_text):
+            return float(rate_text.replace('%', '').replace('-', ''))
 
-        if(positive.time == max_rate_row.time == negative.time):
-           negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-           positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-           if(positiveRate <= negativeRate):
-               return negative
-           else:
-               return positive
-        elif (positive.time == max_rate_row.time != negative.time):
-            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-            positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-            if(positiveRate <= lastRate):
-               return max_rate_row
+        if positive.time == max_rate_row.time == negative.time:
+            if parse_rate(positive.rate) <= parse_rate(negative.rate):
+                return negative
             else:
-               return positive
-        elif (negative.time == max_rate_row.time != positive.time):
-            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-            negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-            if(negativeRate <= lastRate):
-               return max_rate_row
+                return positive
+        elif positive.time == max_rate_row.time != negative.time:
+            if parse_rate(positive.rate) <= parse_rate(max_rate_row.rate):
+                return max_rate_row
             else:
-               return negative
+                return positive
+        elif negative.time == max_rate_row.time != positive.time:
+            if parse_rate(negative.rate) <= parse_rate(max_rate_row.rate):
+                return max_rate_row
+            else:
+                return negative
         else:
             return max_rate_row
+
+    finally:
+        driver.quit()
 
 # Function to open a position with buy/sell orders
 def open_position(price, symbol, side): 
@@ -154,7 +160,7 @@ def open_position(price, symbol, side):
             price=price,
             positionIdx=idx,
         )
-        time.sleep(120)
+        time.sleep(110)
         take = session.set_trading_stop(
             category="linear",
             symbol=symbol,
@@ -220,7 +226,7 @@ def verify():
             reopen(best.symbol, side)
 
 # Programează funcția să ruleze la începutul fiecărei ore
-schedule.every().hour.at(":25").do(verify)
+schedule.every().hour.at(":58").do(verify)
 
 while True:
     schedule.run_pending()

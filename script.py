@@ -67,13 +67,20 @@ def fetch_table_data():
 
         positive = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
 
+        print('4')
+
         # Apasă pe al patrulea <th> pentru a sorta tabelul
+        page.wait_for_selector("table thead tr th:nth-child(4)", state="visible")
+        page.wait_for_timeout(1000)  # Pauză pentru siguranță
         page.click("table thead tr th:nth-child(4)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
+
+        print('5')
 
         # Obține toate rândurile din tabel
         rows = page.locator("table tbody tr")
         row_count = rows.count()
+
+        print('6')
 
         # Obține ora din primul rând
         first_row_time = rows.nth(1).locator("td:nth-child(4)").inner_text()

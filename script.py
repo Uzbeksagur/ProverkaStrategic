@@ -55,15 +55,17 @@ def fetch_table_data():
         # Așteaptă încărcarea tabelului
         page.wait_for_selector("table")
 
-        # Apasă pe al cincilea <th> pentru a sorta tabelul
+        # Apasă pe al patrulea <th> pentru a sorta tabelul
+        page.wait_for_selector("table thead tr th:nth-child(5)", state="visible")
+        page.wait_for_timeout(1000)  # Pauză pentru siguranță
         page.click("table thead tr th:nth-child(5)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
 
         negative = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
 
-        # Apasă pe al cincilea <th> pentru a sorta tabelul
+        # Apasă pe al patrulea <th> pentru a sorta tabelul
+        page.wait_for_selector("table thead tr th:nth-child(5)", state="visible")
+        page.wait_for_timeout(1000)  # Pauză pentru siguranță
         page.click("table thead tr th:nth-child(5)")
-        page.wait_for_timeout(1000)  # Pauză mică pentru a permite sortarea
 
         positive = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
 

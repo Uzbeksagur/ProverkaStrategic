@@ -1,11 +1,15 @@
 from playwright.sync_api import sync_playwright
 import schedule
-import time
 from datetime import datetime
 from pybit.unified_trading import HTTP
 import requests
+import time
 from keep_alive import keep_alive
 keep_alive()
+
+playwright = None
+browser = None
+page = None
 
 class Row:
   def __init__(self, symbol, time, rate):
@@ -40,98 +44,86 @@ def sendMessage():
     except Exception as e:
         print(f"Error sending Wallet Message: {e}")
 
+def initialize_browser():
+    global playwright, browser, page
+    playwright = sync_playwright().start()
+    browser = playwright.firefox.launch()  # Setează `headless=True` dacă nu vrei să vezi browserul
+    page = browser.new_page()
+    url = "https://bybit.com/en/announcement-info/fund-rate/"
+    page.goto(url, timeout=90000)
+    page.wait_for_selector("table")  # Așteaptă să se încarce tabelul
+
 # Scriptul Playwright
 def fetch_table_data():
-    print('fff')
-    with sync_playwright() as p:
-        # Pornește browserul headless
-        browser = p.firefox.launch()  # Setează la True dacă nu vrei să vezi browserul
-        page = browser.new_page()
+    global page
+    # Asigură-te că pagina este încă validă
+    if not page:
+        initialize_browser()
 
-        # Deschide URL-ul
-        url = "https://bybit.com/en/announcement-info/fund-rate/"
-        page.goto(url)
+    # Sortează tabelul și obține datele pentru cel mai negativ și cel mai pozitiv rate
+    page.click("table thead tr th:nth-child(5)")
+    page.wait_for_timeout(1000)  # Pauză pentru siguranță
+    negative = Row(
+        page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(),
+        page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(),
+        page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text(),
+    )
 
-        # Așteaptă încărcarea tabelului
-        page.wait_for_selector("table")
+    page.click("table thead tr th:nth-child(5)")
+    page.wait_for_timeout(1000)  # Pauză pentru siguranță
+    positive = Row(
+        page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(),
+        page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(),
+        page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text(),
+    )
 
-        # Apasă pe al patrulea <th> pentru a sorta tabelul
-        page.wait_for_selector("table thead tr th:nth-child(5)", state="visible")
-        page.wait_for_timeout(1000)  # Pauză pentru siguranță
-        page.click("table thead tr th:nth-child(5)")
+    # Sortează pe coloană după timp
+    page.click("table thead tr th:nth-child(4)")
+    page.wait_for_timeout(1000)  # Pauză pentru siguranță
 
-        negative = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
+    # Obține toate rândurile din tabel
+    rows = page.locator("table tbody tr")
+    row_count = rows.count()
+    first_row_time = rows.nth(1).locator("td:nth-child(4)").inner_text()
 
-        # Apasă pe al patrulea <th> pentru a sorta tabelul
-        page.wait_for_selector("table thead tr th:nth-child(5)", state="visible")
-        page.wait_for_timeout(1000)  # Pauză pentru siguranță
-        page.click("table thead tr th:nth-child(5)")
+    max_rate_row = None
+    max_rate_value = float('-inf')
 
-        positive = Row(page.locator("table tbody tr:nth-child(2) td:nth-child(1)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(4)").inner_text(), page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text())
+    for i in range(1, row_count):
+        time = rows.nth(i).locator("td:nth-child(4)").inner_text()
+        if time == first_row_time:
+            symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
+            rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
+            rate = float(rate_text.replace('%', '').replace('-', ''))
 
-        print('4')
+            if rate > max_rate_value:
+                max_rate_value = rate
+                max_rate_row = Row(symbol, time, rate_text)
 
-        # Apasă pe al patrulea <th> pentru a sorta tabelul
-        page.wait_for_selector("table thead tr th:nth-child(4)", state="visible")
-        page.wait_for_timeout(1000)  # Pauză pentru siguranță
-        page.click("table thead tr th:nth-child(4)")
-
-        print('5')
-
-        # Obține toate rândurile din tabel
-        rows = page.locator("table tbody tr")
-        row_count = rows.count()
-
-        print('6')
-
-        # Obține ora din primul rând
-        first_row_time = rows.nth(1).locator("td:nth-child(4)").inner_text()
-
-        # Variabilă pentru a ține minte linia cu cel mai mare rate
-        max_rate_row = None
-        max_rate_value = float('-inf')  # Inițializăm cu cel mai mic număr posibil
-
-        # Parcurge toate rândurile care au aceeași oră ca prima linie
-        for i in range(1, row_count):  # Începem de la al doilea rând (index 1)
-            time = rows.nth(i).locator("td:nth-child(4)").inner_text()
-
-            # Verifică dacă ora curentă este aceeași cu ora primei linii
-            if time == first_row_time:
-                symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
-                rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
-                rate = float(rate_text.replace('%', '').replace('-', ''))
-
-                # Actualizează rândul cu cel mai mare rate
-                if rate > max_rate_value:
-                    max_rate_value = rate
-                    max_rate_row = Row(symbol, time, rate_text)
-
-        # Închide browserul
-        browser.close()
-
-        if(positive.time == max_rate_row.time == negative.time):
-           negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-           positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-           if(positiveRate <= negativeRate):
-               return negative
-           else:
-               return positive
-        elif (positive.time == max_rate_row.time != negative.time):
-            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-            positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-            if(positiveRate <= lastRate):
-               return max_rate_row
-            else:
-               return positive
-        elif (negative.time == max_rate_row.time != positive.time):
-            lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-            negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-            if(negativeRate <= lastRate):
-               return max_rate_row
-            else:
-               return negative
+    # Verificări finale
+    if positive.time == max_rate_row.time == negative.time:
+        negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
+        positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
+        if positiveRate <= negativeRate:
+            return negative
         else:
+            return positive
+    elif positive.time == max_rate_row.time != negative.time:
+        lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
+        positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
+        if positiveRate <= lastRate:
             return max_rate_row
+        else:
+            return positive
+    elif negative.time == max_rate_row.time != positive.time:
+        lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
+        negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
+        if negativeRate <= lastRate:
+            return max_rate_row
+        else:
+            return negative
+    else:
+        return max_rate_row
 
 # Function to open a position with buy/sell orders
 def open_position(price, symbol, side): 
@@ -153,8 +145,8 @@ def open_position(price, symbol, side):
         print(f"Error setting variables: {e}")
 
     try:
-        # Place Buy Order
-        order = session.place_order(
+        # Place Order
+        session.place_order(
             category="linear",
             symbol=symbol,
             side=side,
@@ -162,17 +154,9 @@ def open_position(price, symbol, side):
             qty=round(qty),
             price=price,
             positionIdx=idx,
-        )
-        time.sleep(120)
-        take = session.set_trading_stop(
-            category="linear",
-            symbol=symbol,
-            positionIdx=idx,
             stopLoss=stopPrice,
             takeProfit=takePrice,
             tpslMode='Partial',
-            tpSize=str(round(qty)),
-            slSize=str(round(qty)),
         )
     except Exception as e:
         print(f"Error placing BUY order: {e}")
@@ -191,24 +175,18 @@ def getPrice(symbol):
     price = tiker['result']['list'][0]['lastPrice']
     return float(price)
 
-# Cancel all open orders for the symbol
-def closeOrders():
-    session.cancel_all_orders(
-        category="linear",
-        orderFilter='Order',
-        settleCoin="USDT"
-    )
-
-# Reopen buy/sell orders after closing existing ones
+# Reopen buy/sell orders
 def reopen(symbol, side):
     try:
-        closeOrders()
-    except Exception as e:
-        print(f"Error closing orders: {e}")
-    
-    try:
+        while True:
+            now = datetime.utcnow()
+            if now.minute == 59 and now.second == 55:
+                break
+            time.sleep(0.5)
+
         price = float(getPrice(symbol))
         open_position(price, symbol, side)
+
     except Exception as e:
         print(f"Error reopening orders: {e}")
 
@@ -229,7 +207,9 @@ def verify():
             reopen(best.symbol, side)
 
 # Programează funcția să ruleze la începutul fiecărei ore
-schedule.every().minute.at(":58").do(verify)
+initialize_browser()
+schedule.every().hour.at(":58").do(verify)
 
 while True:
     schedule.run_pending()
+    time.sleep(1)

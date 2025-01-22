@@ -4,8 +4,6 @@ from datetime import datetime
 from pybit.unified_trading import HTTP
 import requests
 import time
-from keep_alive import keep_alive
-keep_alive()
 
 playwright = None
 browser = None
@@ -84,21 +82,30 @@ def fetch_table_data():
     # Obține toate rândurile din tabel
     rows = page.locator("table tbody tr")
     row_count = rows.count()
-    first_row_time = rows.nth(1).locator("td:nth-child(4)").inner_text()
+    first_row_time = None
+
+    # Găsește primul rând valid (unde `time` nu este gol)
+    for i in range(1, row_count):
+        potential_time = rows.nth(i).locator("td:nth-child(4)").inner_text()
+        if potential_time:  # Dacă timpul nu este gol
+            first_row_time = potential_time
+            break
 
     max_rate_row = None
     max_rate_value = float('-inf')
 
     for i in range(1, row_count):
         time = rows.nth(i).locator("td:nth-child(4)").inner_text()
-        if time == first_row_time:
-            symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
-            rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
-            rate = float(rate_text.replace('%', '').replace('-', ''))
+        if not time and time != first_row_time:  # Sară rândurile fără `time`
+            continue
 
-            if rate > max_rate_value:
-                max_rate_value = rate
-                max_rate_row = Row(symbol, time, rate_text)
+        symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
+        rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
+        rate = float(rate_text.replace('%', '').replace('-', ''))
+
+        if rate > max_rate_value:
+            max_rate_value = rate
+            max_rate_row = Row(symbol, time, rate_text)
 
     # Verificări finale
     if positive.time == max_rate_row.time == negative.time:
@@ -176,16 +183,15 @@ def getPrice(symbol):
     return float(price)
 
 # Reopen buy/sell orders
-def reopen(symbol, side):
+def reopen(symbol, side, fundingT):
     try:
         while True:
             now = datetime.utcnow()
-            if now.minute == 59 and now.second == 55:
+            if now.minute == 59 and now.second == 55 and (now.hour + 1) == fundingT:
+                price = float(getPrice(symbol))
+                open_position(price, symbol, side)
                 break
             time.sleep(0.5)
-
-        price = float(getPrice(symbol))
-        open_position(price, symbol, side)
 
     except Exception as e:
         print(f"Error reopening orders: {e}")
@@ -196,15 +202,15 @@ def verify():
     timeCurrent = datetime.utcnow().hour
     if fundingTime == 0: fundingTime = 24
     side = 'Buy'
-    print(best.rate, best.symbol)
+    print(best.rate, best.symbol, timeCurrent, best.time)
     if(fundingTime == (timeCurrent + 1)):
         rate_val = float(best.rate[:-1])
         if(rate_val > 0.25):
             side = 'Sell'
-            reopen(best.symbol, side)
+            reopen(best.symbol, side, fundingTime)
         elif(rate_val < -0.25):
             side = 'Buy'
-            reopen(best.symbol, side)
+            reopen(best.symbol, side, fundingTime)
 
 # Programează funcția să ruleze la începutul fiecărei ore
 initialize_browser()

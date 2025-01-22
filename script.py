@@ -4,6 +4,8 @@ from datetime import datetime
 from pybit.unified_trading import HTTP
 import requests
 import time
+from keep_alive import keep_alive
+keep_alive()
 
 playwright = None
 browser = None

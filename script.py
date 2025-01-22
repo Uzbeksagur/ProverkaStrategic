@@ -15,11 +15,11 @@ class Row:
     self.time = time
     self.rate = rate
 
-api_key = "FUohm9A4TvvCSChSG7"
-api_secret = "tJAfR9ddpKCJ3ubOXdBViuprX8R9tU3V6B1v"
+api_key = "LfjAunj7W0SLLbGa0s"
+api_secret = "9uMKJVhFa9NhbPXfxEOfCdLQSn6QZyQtY8pi"
 
-token = "7877883188:AAGdqomhdm9HdOkyybIrHWfw_kXVf9u-9Tc"
-chat_id = "6527491132"
+token = "7035583013:AAHki-p3K10U23zFi3IqOYT92LscE_-x0JE"
+chat_id = "7308714189"
 
 # Initialize HTTP session and WebSocket
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)

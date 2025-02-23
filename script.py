@@ -105,7 +105,7 @@ def initialize_browser():
     browser = playwright.firefox.launch()  # Setează `headless=True` dacă nu vrei să vezi browserul
     page = browser.new_page()
     url = "https://bybit.com/en/announcement-info/fund-rate/"
-    page.goto(url, timeout=90000)
+    page.goto(url, timeout=180000)
     page.wait_for_selector("table")  # Așteaptă să se încarce tabelul
 
 # Scriptul Playwright

@@ -1,7 +1,7 @@
 from playwright.sync_api import sync_playwright
 import schedule
-from datetime import datetime
 from pybit.unified_trading import HTTP
+from pybit.unified_trading import WebSocket
 import requests
 import time
 from keep_alive import keep_alive
@@ -26,23 +26,78 @@ chat_id = "7308714189"
 # Initialize HTTP session and WebSocket
 session = HTTP(demo=True, api_key=api_key, api_secret=api_secret)
 
-def handle_wallet(message):
-    avi = message.get('totalAvailableBalance', 'Valoare indisponibilă')
-    mar = message.get('totalMarginBalance', 'Valoare indisponibilă')
-    return(f'Available: {round(float(avi), 2)}, WithMargin: {round(float(mar), 2)}')
+ws = WebSocket(
+    testnet=False,
+    demo=True,
+    channel_type="private",
+    api_key=api_key,
+    api_secret=api_secret,
+)
 
-# Function to send Messages in Telegram
-def sendMessage():
+open_positions = []
+
+def send_telegram_message(msg):
+    url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
+    requests.get(url)
+def sendMessage(ms):
     try:
-        wallet = session.get_wallet_balance(accountType="UNIFIED")
-        message = wallet["result"]["list"][0]
-        try: 
-            url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={handle_wallet(message)}"
-            requests.get(url)
-        except Exception as e:
-            print(f"Error seting Wallet Message: {e}")
+        message = ms['data'][0]
+        global open_positions
+
+        # Verificăm dacă mesajul este pentru deschiderea unei poziții
+        if message['createType'] == 'CreateByUser' and message['side'] in ['Buy', 'Sell']:
+            symbol = message['symbol']
+            exec_qty = float(message['execQty'])
+            side = message['side']
+            exec_price = float(message['execPrice'])
+            exec_fee = float(message['execFee'])
+
+            # Adăugăm poziția deschisă în lista de poziții
+            open_positions.append({
+                'symbol': symbol,
+                'execQty': exec_qty,
+                'side': side,
+                'execPrice': exec_price,
+                'execFee': exec_fee
+            })
+
+        # Verificăm dacă mesajul este pentru închiderea unei poziții
+        elif message['createType'] in ['CreateByClosing', 'CreateByPartialTakeProfit', 'CreateByPartialStopLoss', 'CreateByTakeProfit', 'CreateByStopLoss']:
+            symbol = message['symbol']
+            close_qty = float(message['execQty'])
+            close_price = float(message['execPrice'])
+            close_fee = float(message['execFee'])
+
+            # Căutăm poziția deschisă corespunzătoare
+            for idx, open_position in enumerate(open_positions):
+                if (open_position['symbol'] == symbol and
+                    open_position['execQty'] == close_qty):
+
+                    # Calculăm profitul sau pierderea pentru cantitatea închisă
+                    open_fee = open_position['execFee']
+                    open_price = open_position['execPrice'] 
+                    side = open_position['side']
+                    quantity = close_qty  # Folosim cantitatea închisă
+
+                    if side == 'Buy':
+                        profit = (close_price - open_price) * quantity - (close_fee + open_fee)
+                    else:  # 'Sell'
+                        profit = (open_price - close_price) * quantity - (close_fee + open_fee)
+
+                    # Afișăm mesajul cu profitul sau pierderea
+                    profit_message = f"Poziția a fost închisă. Profit: {profit:.2f} USDT ({symbol})"
+                    send_telegram_message(profit_message)
+
+                    # Ajustăm cantitatea rămasă în poziția deschisă
+                    open_position['execQty'] -= close_qty
+
+                    # Dacă cantitatea rămasă este zero, eliminăm poziția din listă
+                    if open_position['execQty'] <= 0:
+                        open_positions.pop(idx)
+
+                    break
     except Exception as e:
-        print(f"Error sending Wallet Message: {e}")
+        print(f"Error sending message: {e}")
 
 def initialize_browser():
     global playwright, browser, page
@@ -77,67 +132,17 @@ def fetch_table_data():
         page.locator("table tbody tr:nth-child(2) td:nth-child(5)").inner_text(),
     )
 
-    # Sortează pe coloană după timp
-    page.click("table thead tr th:nth-child(4)")
-    page.wait_for_timeout(1000)  # Pauză pentru siguranță
-
-    # Obține toate rândurile din tabel
-    rows = page.locator("table tbody tr")
-    row_count = rows.count()
-    first_row_time = None
-
-    # Găsește primul rând valid (unde `time` nu este gol)
-    for i in range(1, row_count):
-        potential_time = rows.nth(i).locator("td:nth-child(4)").inner_text()
-        if potential_time:  # Dacă timpul nu este gol
-            first_row_time = potential_time
-            break
-
-    max_rate_row = None
-    max_rate_value = float('-inf')
-
-    for i in range(1, row_count):
-        time = rows.nth(i).locator("td:nth-child(4)").inner_text()
-        if not time and time != first_row_time:  # Sară rândurile fără `time`
-            continue
-
-        symbol = rows.nth(i).locator("td:nth-child(1)").inner_text()
-        rate_text = rows.nth(i).locator("td:nth-child(5)").inner_text()
-        rate = float(rate_text.replace('%', '').replace('-', ''))
-
-        if rate > max_rate_value:
-            max_rate_value = rate
-            max_rate_row = Row(symbol, time, rate_text)
-
-    # Verificări finale
-    if positive.time == max_rate_row.time == negative.time:
-        negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-        positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-        if positiveRate <= negativeRate:
-            return negative
-        else:
-            return positive
-    elif positive.time == max_rate_row.time != negative.time:
-        lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-        positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
-        if positiveRate <= lastRate:
-            return max_rate_row
-        else:
-            return positive
-    elif negative.time == max_rate_row.time != positive.time:
-        lastRate = float(max_rate_row.rate.replace('%', '').replace('-', ''))
-        negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
-        if negativeRate <= lastRate:
-            return max_rate_row
-        else:
-            return negative
+    negativeRate = float(negative.rate.replace('%', '').replace('-', ''))
+    positiveRate = float(positive.rate.replace('%', '').replace('-', ''))
+    if positiveRate <= negativeRate:
+        return negative
     else:
-        return max_rate_row
+        return positive
 
 # Function to open a position with buy/sell orders
 def open_position(price, symbol, side): 
     qty = 202/price
-    takeProfit = 0.0033
+    takeProfit = 0.012
     stopLoss = 0.075
     # buy = 1
     idx = 1
@@ -161,19 +166,15 @@ def open_position(price, symbol, side):
             side=side,
             orderType="Market",
             qty=round(qty),
-            price=price,
             positionIdx=idx,
             stopLoss=stopPrice,
             takeProfit=takePrice,
             tpslMode='Partial',
+            tpSize=str(round(qty)),
+            slSize=str(round(qty)),
         )
     except Exception as e:
-        print(f"Error placing BUY order: {e}")
-
-    try:
-        sendMessage()
-    except Exception as e:
-        print(f"Error send Message: {e}")
+        print(f"Error placing order: {e}")
 
 # Get the latest price for the symbol
 def getPrice(symbol):
@@ -185,38 +186,29 @@ def getPrice(symbol):
     return float(price)
 
 # Reopen buy/sell orders
-def reopen(symbol, side, fundingT):
+def reopen(symbol, side):
     try:
-        while True:
-            now = datetime.utcnow()
-            if now.minute == 59 and now.second == 55 and (now.hour + 1) == fundingT:
-                price = float(getPrice(symbol))
-                open_position(price, symbol, side)
-                break
-            time.sleep(0.5)
-
+        price = float(getPrice(symbol))
+        open_position(price, symbol, side)
     except Exception as e:
         print(f"Error reopening orders: {e}")
 
 def verify():
     best = fetch_table_data()
-    fundingTime = datetime.strptime(best.time, '%Y-%m-%d %H:%M:%S').hour
-    timeCurrent = datetime.utcnow().hour
-    if fundingTime == 0: fundingTime = 24
     side = 'Buy'
-    print(best.rate, best.symbol, timeCurrent, best.time)
-    if(fundingTime == (timeCurrent + 1)):
-        rate_val = float(best.rate[:-1])
-        if(rate_val > 0.25):
-            side = 'Sell'
-            reopen(best.symbol, side, fundingTime)
-        elif(rate_val < -0.25):
-            side = 'Buy'
-            reopen(best.symbol, side, fundingTime)
+    print(best.rate, best.symbol, best.time)
+    rate_val = float(best.rate[:-1])
+    if(rate_val > 0.04):
+        side = 'Sell'
+        reopen(best.symbol, side)
+    elif(rate_val < -0.04):
+        side = 'Buy'
+        reopen(best.symbol, side)
 
-# Programează funcția să ruleze la începutul fiecărei ore
+ws.execution_stream(callback=sendMessage)
+
 initialize_browser()
-schedule.every().hour.at(":58").do(verify)
+schedule.every().hour.at(":10").do(verify)
 
 while True:
     schedule.run_pending()

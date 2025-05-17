@@ -105,6 +105,7 @@ def initialize_browser():
 
     browser = playwright.chromium.launch(
         headless=True,
+        proxy={"server": "http://85.214.107.177:80"}
         args=[
             "--no-sandbox",
             "--disable-dev-shm-usage",

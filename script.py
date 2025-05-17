@@ -105,14 +105,29 @@ def initialize_browser():
     browser = playwright.chromium.launch(
         headless=True,
         args=[
-            f"--window-size={os.getenv('SCREEN_WIDTH')},{os.getenv('SCREEN_HEIGHT')}",
-            "--ignore-certificate-errors" if os.getenv('DEFAULT_IGNORE_HTTPS_ERRORS') == "true" else ""
+            f"--window-size={os.getenv('SCREEN_WIDTH', '1920')},{os.getenv('SCREEN_HEIGHT', '1024')}",
+            "--ignore-certificate-errors",
+            "--disable-blink-features=AutomationControlled",  # Evită detectarea bot
+            "--no-sandbox",  # Necesare în container
+            "--disable-dev-shm-usage"
         ]
     )
-    page = browser.new_page()
+    context = browser.new_context(
+        viewport={"width": int(os.getenv('SCREEN_WIDTH', 1920)), "height": int(os.getenv('SCREEN_HEIGHT', 1024))},
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+        ignore_https_errors=True
+    )
+    page = context.new_page()
     url = "https://bybit.com/en/announcement-info/fund-rate/"
-    page.goto(url, timeout=90000)
-    page.wait_for_selector("table")
+    try:
+        page.goto(url, timeout=120000, wait_until="domcontentloaded")  # Timeout mărit și stare mai relaxată
+        page.wait_for_selector("table", timeout=60000)
+    except Exception as e:
+        print(f"Failed to load page: {e}")
+        send_telegram_message(f"Failed to load Bybit page: {e}")
+        browser.close()
+        playwright.stop()
+        raise
 
 def fetch_table_data(row_index):
     global page
@@ -178,7 +193,7 @@ def open_position(price, best, take_profit, stop_loss):
             minutes = (total_seconds % 3600) // 60
             dife_str = f"{hours:02d}:{minutes:02d}"
 
-            writer.writerow([now.strftime("%Y-%m-%d %H:%M:%S"), best.time, best.interval, dife_str, 
+            writer.writerow([now.strftime("%Y-%m-%d %H:%M:%S"),; best.time, best.interval, dife_str, 
                            best.symbol, price, best.rate, take_profit, stop_loss])
     except Exception as e:
         print(f"Error register in file: {e}")

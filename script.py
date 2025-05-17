@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync  # Corectăm importul
 import schedule
 from pybit.unified_trading import HTTP
 from pybit.unified_trading import WebSocket
@@ -102,54 +101,12 @@ def sendMessage(ms):
 
 def initialize_browser():
     global playwright, browser, page
-    max_retries = 3
-    retry_delay = 5  # secunde
-
-    for attempt in range(max_retries):
-        try:
-            playwright = sync_playwright().start()
-            browser = playwright.chromium.launch(
-                headless=True,
-                args=[
-                    f"--window-size={os.getenv('SCREEN_WIDTH', '1920')},{os.getenv('SCREEN_HEIGHT', '1024')}",
-                    "--ignore-certificate-errors",
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-http2"
-                ]
-            )
-            context = browser.new_context(
-                viewport={"width": int(os.getenv('SCREEN_WIDTH', 1920)), "height": int(os.getenv('SCREEN_HEIGHT', 1024))},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-                ignore_https_errors=True,
-                java_script_enabled=True,
-                bypass_csp=True
-            )
-            page = context.new_page()
-            stealth_sync(page)  # Corectăm apelul la stealth_sync
-            url = "https://bybit.com/en/announcement-info/fund-rate/"
-            page.goto(url, timeout=120000, wait_until="domcontentloaded")
-            page.wait_for_selector("table", timeout=60000)
-            return  # Succes
-        except Exception as e:
-            print(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-            else:
-                print("Max retries reached. Exiting.")
-                if page:
-                    page.close()
-                if browser:
-                    browser.close()
-                if playwright:
-                    playwright.stop()
-                raise
-        finally:
-            if attempt < max_retries - 1 and page and browser and playwright:
-                page.close()
-                browser.close()
-                playwright.stop()
+    playwright = sync_playwright().start()
+    browser = playwright.firefox.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page()
+    url = "https://bybit.com/en/announcement-info/fund-rate/"
+    page.goto(url, timeout=120000)
+    page.wait_for_selector("table")
 
 def fetch_table_data(row_index):
     global page
@@ -178,7 +135,7 @@ def fetch_table_data(row_index):
 def open_position(price, best, take_profit, stop_loss):
     qty = 202/price
     idx = 1
-    csv_file = "/app/logs/logs.csv"
+    csv_file = "logs.csv"
     stopPrice = price * (1 - stop_loss)
     takePrice = price * (1 + take_profit)
 

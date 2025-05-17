@@ -1,10 +1,14 @@
 FROM python:3.10-slim
 
-# Instalează dependențele de sistem necesare pentru Playwright
+# Instalează dependențele de sistem necesare pentru Playwright și rețea
 RUN apt-get update && apt-get install -y \
     libnss3 libatk1.0-0 libx11-xcb1 libxcomposite1 libxrandr2 libgbm-dev libpangocairo-1.0-0 libgtk-3-0 \
     libasound2 fonts-liberation libappindicator3-1 libxshmfence-dev libxdamage-dev libxext6 libegl1 \
-    && apt-get clean
+    ca-certificates curl wget \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Actualizează certificatele CA
+RUN update-ca-certificates
 
 # Instalează dependențele Python
 COPY requirements.txt .

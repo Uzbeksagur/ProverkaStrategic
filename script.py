@@ -102,7 +102,13 @@ def sendMessage(ms):
 def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch()
+    browser = playwright.chromium.launch(
+        headless=True,
+        args=[
+            f"--window-size={os.getenv('SCREEN_WIDTH')},{os.getenv('SCREEN_HEIGHT')}",
+            "--ignore-certificate-errors" if os.getenv('DEFAULT_IGNORE_HTTPS_ERRORS') == "true" else ""
+        ]
+    )
     page = browser.new_page()
     url = "https://bybit.com/en/announcement-info/fund-rate/"
     page.goto(url, timeout=90000)

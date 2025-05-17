@@ -1,4 +1,4 @@
-flask
+playwright
 schedule
 requests
 pybit

@@ -193,7 +193,7 @@ def open_position(price, best, take_profit, stop_loss):
             minutes = (total_seconds % 3600) // 60
             dife_str = f"{hours:02d}:{minutes:02d}"
 
-            writer.writerow([now.strftime("%Y-%m-%d %H:%M:%S"),; best.time, best.interval, dife_str, 
+            writer.writerow([now.strftime("%Y-%m-%d %H:%M:%S"), best.time, best.interval, dife_str, 
                            best.symbol, price, best.rate, take_profit, stop_loss])
     except Exception as e:
         print(f"Error register in file: {e}")

@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth
 import schedule
 from pybit.unified_trading import HTTP
 from pybit.unified_trading import WebSocket
@@ -101,33 +102,62 @@ def sendMessage(ms):
 
 def initialize_browser():
     global playwright, browser, page
-    playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(
-        headless=True,
-        args=[
-            f"--window-size={os.getenv('SCREEN_WIDTH', '1920')},{os.getenv('SCREEN_HEIGHT', '1024')}",
-            "--ignore-certificate-errors",
-            "--disable-blink-features=AutomationControlled",  # Evită detectarea bot
-            "--no-sandbox",  # Necesare în container
-            "--disable-dev-shm-usage"
-        ]
-    )
-    context = browser.new_context(
-        viewport={"width": int(os.getenv('SCREEN_WIDTH', 1920)), "height": int(os.getenv('SCREEN_HEIGHT', 1024))},
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-        ignore_https_errors=True
-    )
-    page = context.new_page()
-    url = "https://bybit.com/en/announcement-info/fund-rate/"
-    try:
-        page.goto(url, timeout=120000, wait_until="domcontentloaded")  # Timeout mărit și stare mai relaxată
-        page.wait_for_selector("table", timeout=60000)
-    except Exception as e:
-        print(f"Failed to load page: {e}")
-        send_telegram_message(f"Failed to load Bybit page: {e}")
-        browser.close()
-        playwright.stop()
-        raise
+    max_retries = 2
+    retry_delay = 5  # secunde
+
+    print("Testing with requests...")
+    response = requests.get("https://bybit.com/en/announcement-info/fund-rate/", headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    })
+    print(f"Requests status: {response.status_code}")
+
+    for attempt in range(max_retries):
+        try:
+            playwright = sync_playwright().start()
+            browser = playwright.chromium.launch(
+                headless=True,
+                args=[
+                    f"--window-size={os.getenv('SCREEN_WIDTH', '1920')},{os.getenv('SCREEN_HEIGHT', '1024')}",
+                    "--ignore-certificate-errors",
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-http2"  # Dezactivează HTTP/2
+                ]
+            )
+            context = browser.new_context(
+                viewport={"width": int(os.getenv('SCREEN_WIDTH', 1920)), "height": int(os.getenv('SCREEN_HEIGHT', 1024))},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+                ignore_https_errors=True,
+                java_script_enabled=True,
+                bypass_csp=True
+            )
+            page = context.new_page()
+            stealth(page)  # Aplică configurări stealth
+            url = "https://bybit.com/en/announcement-info/fund-rate/"
+            page.goto(url, timeout=120000, wait_until="domcontentloaded")
+            page.wait_for_selector("table", timeout=60000)
+            return  # Succes, ieși din funcție
+        except Exception as e:
+            print(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+            send_telegram_message(f"Failed to load Bybit page (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Exiting.")
+                if page:
+                    page.close()
+                if browser:
+                    browser.close()
+                if playwright:
+                    playwright.stop()
+                raise
+        finally:
+            # Închide resursele dacă există, doar dacă nu a fost succes
+            if attempt < max_retries - 1 and page and browser and playwright:
+                page.close()
+                browser.close()
+                playwright.stop()
 
 def fetch_table_data(row_index):
     global page
@@ -156,7 +186,7 @@ def fetch_table_data(row_index):
 def open_position(price, best, take_profit, stop_loss):
     qty = 202/price
     idx = 1
-    csv_file = "logs.csv"
+    csv_file = "/app/logs/logs.csv"  # Actualizat pentru volum Railway
     stopPrice = price * (1 - stop_loss)
     takePrice = price * (1 + take_profit)
 

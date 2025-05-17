@@ -103,7 +103,7 @@ def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
 
-    browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", , "--disable-http2"])
+    browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-http2"])
     context = browser.new_context()
     page = context.new_page()
 

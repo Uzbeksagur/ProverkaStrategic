@@ -103,13 +103,31 @@ def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
 
-    browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-http2"])
-    context = browser.new_context()
+    browser = playwright.chromium.launch(
+        headless=True,
+        args=[
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-setuid-sandbox",
+        ]
+    )
+
+    context = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+        ),
+        ignore_https_errors=True
+    )
+
     page = context.new_page()
 
-    url = "https://bybit.com/en/announcement-info/fund-rate/"
+    url = "https://www.bybit.com/en/announcement-info/fund-rate/"
+    print("Navigating to:", url)
     page.goto(url, timeout=120000)
-    page.wait_for_selector("table", timeout=15000)
+    page.wait_for_selector("table", timeout=60000)
+
 
 def fetch_table_data(row_index):
     global page

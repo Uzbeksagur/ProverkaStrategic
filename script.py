@@ -102,7 +102,7 @@ def sendMessage(ms):
 def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
-    browser = playwright.firefox.launch()
+    browser = playwright.chromium.launch()
     page = browser.new_page()
     url = "https://bybit.com/en/announcement-info/fund-rate/"
     page.goto(url, timeout=90000)

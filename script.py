@@ -102,11 +102,14 @@ def sendMessage(ms):
 def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
-    browser = playwright.firefox.launch(headless=True, args=["--no-sandbox"])
-    page = browser.new_page()
+
+    browser = playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+    context = browser.new_context()
+    page = context.new_page()
+
     url = "https://bybit.com/en/announcement-info/fund-rate/"
     page.goto(url, timeout=120000)
-    page.wait_for_selector("table")
+    page.wait_for_selector("table", timeout=15000)
 
 def fetch_table_data(row_index):
     global page

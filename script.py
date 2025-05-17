@@ -103,16 +103,14 @@ def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
 
-    browser = playwright.chromium.launch(
+    browser = playwright.firefox.launch(
         headless=True,
         args=[
             "--no-sandbox",
             "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-setuid-sandbox",
-            "--disable-http2"
         ]
     )
+
 
     context = browser.new_context(
         user_agent=(

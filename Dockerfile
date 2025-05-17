@@ -1,4 +1,3 @@
-# Imagine de bază pentru aplicația Python
 FROM python:3.10-slim
 
 # Instalează dependențele de sistem necesare pentru Playwright
@@ -14,6 +13,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Instalează Playwright și browserele
 RUN pip install playwright
 RUN playwright install --with-deps
+
+# Configurații Playwright (setate ca variabile de mediu)
+ENV SCREEN_WIDTH=1920
+ENV SCREEN_HEIGHT=1024
+ENV SCREEN_DEPTH=16
+ENV MAX_CONCURRENT_CHROME_PROCESSES=10
+ENV ENABLE_DEBUGGER=false
+ENV PREBOOT_CHROME=true
+ENV CONNECTION_TIMEOUT=300000
+ENV MAX_CONCURRENT_SESSIONS=10
+ENV CHROME_REFRESH_TIME=600000
+ENV DEFAULT_BLOCK_ADS=true
+ENV DEFAULT_STEALTH=true
+ENV DEFAULT_IGNORE_HTTPS_ERRORS=true
 
 # Copiază codul aplicației
 COPY . /app

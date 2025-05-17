@@ -103,13 +103,17 @@ def initialize_browser():
     global playwright, browser, page
     playwright = sync_playwright().start()
 
-    browser = playwright.firefox.launch(
+    browser = playwright.chromium.launch(
         headless=True,
         args=[
             "--no-sandbox",
             "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-setuid-sandbox",
+            "--disable-http2"
         ]
     )
+
 
 
     context = browser.new_context(
@@ -124,7 +128,7 @@ def initialize_browser():
 
     url = "https://www.bybit.com/en/announcement-info/fund-rate/"
     print("Navigating to:", url)
-    page.goto(url, timeout=120000)
+    page.goto(url, timeout=400000)
     page.wait_for_selector("table", timeout=60000)
 
 

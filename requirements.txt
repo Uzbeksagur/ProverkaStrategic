@@ -1,4 +1,5 @@
 playwright
-schedule
-requests
 pybit
+requests
+schedule
+playwright-stealth

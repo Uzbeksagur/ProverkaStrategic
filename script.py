@@ -110,6 +110,7 @@ def initialize_browser():
             "--disable-dev-shm-usage",
             "--disable-gpu",
             "--disable-setuid-sandbox",
+            "--disable-http2"
         ]
     )
 

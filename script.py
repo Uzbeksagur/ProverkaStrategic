@@ -9,6 +9,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 import csv
 from datetime import datetime
 import os
+from keep_alive import keep_alive
+keep_alive()
 
 playwright = None
 browser = None

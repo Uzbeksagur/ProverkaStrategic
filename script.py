@@ -105,7 +105,6 @@ def initialize_browser():
 
     browser = playwright.chromium.launch(
         headless=True,
-        proxy={"server": "http://159.69.57.20:8880"},
         args=[
             "--no-sandbox",
             "--disable-dev-shm-usage",
@@ -129,7 +128,7 @@ def initialize_browser():
 
     url = "https://www.bybit.com/en/announcement-info/fund-rate/"
     print("Navigating to:", url)
-    page.goto(url, timeout=1000000, wait_until="domcontentloaded")
+    page.goto(url, timeout=120000, wait_until="domcontentloaded")
     page.wait_for_selector("table", timeout=60000)
 
 

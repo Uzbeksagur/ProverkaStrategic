@@ -3,3 +3,4 @@ pybit
 requests
 schedule
 playwright-stealth
+flask
